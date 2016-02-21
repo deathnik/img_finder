@@ -60,3 +60,15 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+#Idea 
+*.iml
+.idea/
+
+#tmp 
+.tmp/
+
+
+# databsefiles
+*.png
+*.bmp
