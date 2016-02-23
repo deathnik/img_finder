@@ -97,11 +97,12 @@ class Fix(object):
             temp_database_mask = os.path.join(DATABASE_LOCATION, '00{}.bmp'.format(ii))
             temp_database_points = '%s_pts.png' % temp_database_img
 
-            elastix_parameters = '/home/deathnik/src/my/magister/img_finder/data/parameters_BSpline.txt'
+            elastix_parameters = os.path.join(os.path.dirname(__file__), 'data/parameters_BSpline.txt')
             os.system(self.elastix_command.format(temp_input, temp_database_img, elastix_parameters, OUTPUT_DIR))
             os.system(self.transformix_command.format(temp_database_mask, OUTPUT_DIR, OUTPUT_DIR))
 
             # mask update
+            print temp_out_mask
             temp_mask = cv2.imread(temp_out_mask, 0).astype(np.float) / 255.0
             temp_mask = skimage.filter.gaussian_filter(temp_mask, 0.5)
             if 'sum_mask' not in locals():
@@ -217,6 +218,30 @@ def draw_points_on_img(img_path, pts):
     cv2.imshow('dst_rt', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+class ImageDB(object):
+    def __init__(self):
+        transform_matrix, nbrs_clf, img_ids, avrg = load_database(200)
+        self.transform_matrix = transform_matrix
+        self.nbrs_clf = nbrs_clf
+        self.img_ids = img_ids
+        self.avrg = avrg
+
+    def do_magic(self, img_path, upper, lower):
+        bound = np.array([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
+        f = Fix()
+        retMsk, retCorr, sumPts, ptsXY = f.register_mask(img_path)
+        pts = f.pts.flatten()
+        self_transform = self.avrg - pts
+        _, indexes = self.nbrs_clf.kneighbors(pts, n_neighbors=5)
+        indexes = indexes[0]
+        draw_points_on_img(img_path, np.ndarray((4, 2), buffer=bound, dtype=float))
+        for ind in indexes:
+            pts = np.ndarray((4, 2), buffer=bound, dtype=float).flatten()
+            p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
+            p = p.reshape(4, 2)
+            draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]), p)
 
 
 def magic_method(img_path):
