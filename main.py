@@ -7,7 +7,8 @@ import zipfile
 import cv2
 import math
 import skimage.filter
-import shutil
+
+from features import LocalBinaryPatternsDescriptor, HistDescriptor, crop_image
 
 OUTPUT_DIR = '/tmp/1'
 DATABASE_LOCATION = '/home/deathnik/src/my/magister/webcrdf-testbed/webcrdf-testbed/data/datadb.segmxr/'
@@ -82,6 +83,9 @@ class Fix(object):
         return points_xy
 
     def register_mask(self, img_path):
+        if not os.path.exists(OUTPUT_DIR):
+            os.makedirs(OUTPUT_DIR)
+
         original_size, img = self.prepare_img(img_path)
 
         images = [2]
@@ -171,12 +175,18 @@ def load_database(db_size):
     nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(data)
     dists, points_indx = nbrs.kneighbors(my_data.flatten(), n_neighbors=2)
     avrg = (avrg / items_seen).flatten()
-    print data
+    avr = np.ndarray((avrg.shape[0] / 2, 2), buffer=avrg, dtype=float)
     transform = data - avrg
+    # for _d in data:
+    #    d = np.ndarray((avrg.shape[0] / 2, 2), buffer=_d, dtype=float)
+    #    H, status = cv2.findHomography(avr, d)
+    #    _r = deepcopy(_d)
+    #    print cv2.warpPerspective(avr, H, avr.shape, dst=_r), avr, _r
     return transform, nbrs, img_ids, avrg
 
 
 def new_points(points, self_transform, other_transform, avrg):
+    # old naive way
     weights = []
     for i in xrange(0, len(points), 2):
         partial_weights = []
@@ -254,12 +264,16 @@ def magic_method(img_path):
     indexes = indexes[0]
     draw_points_on_img(img_path,
                        np.ndarray((4, 2), buffer=np.array([64.0, 64, 64, 128, 128, 128, 128, 64]), dtype=float))
+
+    lbp = HistDescriptor()
     for ind in indexes:
         pts = np.ndarray((4, 2), buffer=np.array([64.0, 64, 64, 128, 128, 128, 128, 64]), dtype=float).flatten()
         p = new_points(pts, self_transform, transform_matrix[ind], avrg)
         p = p.reshape(4, 2)
-        draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % img_ids[ind]), p)
-
+        img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % img_ids[ind])
+        draw_points_on_img(img_path, p)
+        img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
+        print lbp.calculate_descriptor(img_part)
     return
 
     pathImgMask = "%s_mask.png" % img_path
