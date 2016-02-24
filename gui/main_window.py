@@ -1,11 +1,13 @@
 import numpy as np
 import Tkinter as tk
 import matplotlib as mpl
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, os
+from matplotlib.patches import Rectangle
 
 import matplotlib.pyplot as plt
 
 # custom toolbar
+import tkFileDialog
 import cv2
 from main import ImageDB
 
@@ -14,7 +16,7 @@ class CustomToolbar(NavigationToolbar2TkAgg):
     def __init__(self, canvas_, parent_):
         # TODO: make normal buttons later
         self.toolitems = (
-            # ('Home', '', 'home', 'home'),
+            ('Home', '', 'home', 'home'),
             # ('Back', '', 'back', 'back'),
             # ('Forward', '', 'forward', 'forward'),
             # (None, None, None, None),
@@ -22,18 +24,27 @@ class CustomToolbar(NavigationToolbar2TkAgg):
             # ('Zoom', '', 'zoom_to_rect', 'zoom'),
             # (None, None, None, None),
             # ('Subplots', '', 'subplots', 'configure_subplots'),
-            # ('Save', '', 'filesave', 'save_figure'),
+            ('Save', '', 'filesave', 'save_figure'),
         )
         NavigationToolbar2TkAgg.__init__(self, canvas_, parent_)
+
+
+def get_file_path(**kwargs):
+    root = tk.Tk()
+    root.withdraw()
+    file_path = tkFileDialog.askopenfilename(**kwargs)
+    root.destroy()
+    return file_path
 
 
 class MyApp(object):
     def __init__(self, root, image_path):
         self.root = root
-        self._init_app()
         self.upper = (0, 0)
         self.lower = (0, 0)
-        self.image_path = image_path
+        self.image_path = get_file_path(initialdir=os.path.dirname(image_path))
+        self.rect = self._get_selection_rect()
+        self._init_app()
         self.db = ImageDB()
 
     # here we embed the a figure in the Tk GUI
@@ -50,10 +61,21 @@ class MyApp(object):
         self.ax.figure.canvas.mpl_connect('button_press_event', self.on_press)
         self.ax.figure.canvas.mpl_connect('button_release_event', self.on_release)
         self.ax.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        self.ax.add_patch(self.rect)
+
+    def _get_selection_rect(self):
+        return Rectangle(
+            self.upper,  # (x,y)
+            self.lower[0] - self.upper[0],
+            self.lower[1] - self.upper[1], color='red', fill=None)
 
     # plot something random
     def plot(self):
         self.ax.imshow(cv2.imread(self.image_path, 1), cmap="hot", aspect="auto")
+        self.rect.remove()
+        self.rect = self._get_selection_rect()
+        self.ax.add_patch(self.rect)
+
         self.figure.canvas.draw()
 
     def on_press(self, event):
@@ -63,6 +85,7 @@ class MyApp(object):
     def on_release(self, event):
         print 'release'
         self.lower = (event.xdata, event.ydata)
+        self.plot()
 
     def on_key(self, event):
         print('you pressed', event.key, event.xdata, event.ydata)
@@ -75,9 +98,9 @@ class MyApp(object):
 
         f, axes = plt.subplots(len(data))
 
-        for ax, (i, (img, lbp_diff, hist_diff)) in zip(axes, data):
+        for ax, (i, (img, lbp_diff, hist_diff, img_name)) in zip(axes, data):
             ax.imshow(img)
-            ax.set_title("geom:{} lbp:{} hist:{}".format(i, round(lbp_diff, 2), round(hist_diff, 2)))
+            ax.set_title("geom:{} lbp:{} hist:{} img:{}".format(i, round(lbp_diff, 2), round(hist_diff, 2), img_name))
             ax.axis('off')
         plt.show()
 

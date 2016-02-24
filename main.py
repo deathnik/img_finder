@@ -266,15 +266,17 @@ class ImageDB(object):
             pts = np.ndarray((4, 2), buffer=bound, dtype=float).flatten()
             p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
             p = p.reshape(4, 2)
+            img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind])
             img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
             lbp_desc = lbp.calculate_descriptor(img_part)
             hist_desc = hist.calculate_descriptor(img_part)
 
             lbp_diff = np.linalg.norm(orig_lbp_desc - lbp_desc)
             hist_diff = np.linalg.norm(orig_hist_desc - hist_desc)
+            head, filename = os.path.split(img_path)
 
             yield draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]),
-                                     p, show=False), lbp_diff, hist_diff
+                                     p, show=False), lbp_diff, hist_diff, filename
 
 
 def magic_method(img_path):
