@@ -175,13 +175,16 @@ def load_database(db_size):
     nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(data)
     dists, points_indx = nbrs.kneighbors(my_data.flatten(), n_neighbors=2)
     avrg = (avrg / items_seen).flatten()
-    avr = np.ndarray((avrg.shape[0] / 2, 2), buffer=avrg, dtype=float)
+
     transform = data - avrg
+    # TODO: make normal transform using findHomography
+    # avr = np.ndarray((avrg.shape[0] / 2, 2), buffer=avrg, dtype=float)
     # for _d in data:
     #    d = np.ndarray((avrg.shape[0] / 2, 2), buffer=_d, dtype=float)
     #    H, status = cv2.findHomography(avr, d)
     #    _r = deepcopy(_d)
     #    print cv2.warpPerspective(avr, H, avr.shape, dst=_r), avr, _r
+
     return transform, nbrs, img_ids, avrg
 
 
@@ -203,7 +206,7 @@ def new_points(points, self_transform, other_transform, avrg):
     return _new_points
 
 
-def draw_points_on_img(img_path, pts):
+def draw_points_on_img(img_path, pts, show=True):
     img = cv2.imread(img_path, 1)
 
     if pts != None:
@@ -214,6 +217,9 @@ def draw_points_on_img(img_path, pts):
             cpp = pts[pp]
             cv2.circle(img, (int(cpp[0]), int(cpp[1])), prad + 2, (255, 255, 255), -1)  # cv2.cv.FILLED
             cv2.circle(img, (int(cpp[0]), int(cpp[1])), prad + 0, (0, 0, 255), -1)  # cv2.cv.FILLED
+
+    if not show:
+        return img
 
     screen_res = 1280, 720
     scale_width = screen_res[0] / img.shape[1]
@@ -246,12 +252,29 @@ class ImageDB(object):
         self_transform = self.avrg - pts
         _, indexes = self.nbrs_clf.kneighbors(pts, n_neighbors=5)
         indexes = indexes[0]
-        draw_points_on_img(img_path, np.ndarray((4, 2), buffer=bound, dtype=float))
+
+        lbp = LocalBinaryPatternsDescriptor()
+        hist = HistDescriptor()
+        p = np.ndarray((4, 2), buffer=bound, dtype=float)
+        orig_img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
+        orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
+        orig_hist_desc = hist.calculate_descriptor(orig_img_part)
+
+        # draw_points_on_img(img_path, np.ndarray((4, 2), buffer=bound, dtype=float))
+
         for ind in indexes:
             pts = np.ndarray((4, 2), buffer=bound, dtype=float).flatten()
             p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
             p = p.reshape(4, 2)
-            draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]), p)
+            img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
+            lbp_desc = lbp.calculate_descriptor(img_part)
+            hist_desc = hist.calculate_descriptor(img_part)
+
+            lbp_diff = np.linalg.norm(orig_lbp_desc - lbp_desc)
+            hist_diff = np.linalg.norm(orig_hist_desc - hist_desc)
+
+            yield draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]),
+                                     p, show=False), lbp_diff, hist_diff
 
 
 def magic_method(img_path):

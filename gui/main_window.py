@@ -1,9 +1,9 @@
 import numpy as np
 import Tkinter as tk
 import matplotlib as mpl
-from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
+import matplotlib.pyplot as plt
 
 # custom toolbar
 import cv2
@@ -71,7 +71,15 @@ class MyApp(object):
 
     def process_image(self, path, upper_corner, lower_corner):
         print path, upper_corner, lower_corner
-        self.db.do_magic(path, upper_corner, lower_corner)
+        data = sorted(enumerate(list(self.db.do_magic(path, upper_corner, lower_corner))), key=lambda x: x[1][2])
+
+        f, axes = plt.subplots(len(data))
+
+        for ax, (i, (img, lbp_diff, hist_diff)) in zip(axes, data):
+            ax.imshow(img)
+            ax.set_title("geom:{} lbp:{} hist:{}".format(i, round(lbp_diff, 2), round(hist_diff, 2)))
+            ax.axis('off')
+        plt.show()
 
 
 def main():
