@@ -106,8 +106,8 @@ class Fix(object):
             temp_database_img = os.path.join(DATABASE_LOCATION, '00{}.png'.format(ii))
             temp_database_mask = os.path.join(DATABASE_LOCATION, '00{}.bmp'.format(ii))
             temp_database_points = '%s_pts.png' % temp_database_img
-
-            elastix_parameters = os.path.join(os.path.dirname(__file__), 'data/parameters_BSpline.txt')
+            f = os.path.dirname(__file__)[:-len("/main_module")]
+            elastix_parameters = os.path.join(f, 'data/parameters_BSpline.txt')
             os.system(self.elastix_command.format(temp_input, temp_database_img, elastix_parameters, OUTPUT_DIR))
             os.system(self.transformix_command.format(temp_database_mask, OUTPUT_DIR, OUTPUT_DIR))
 
@@ -325,7 +325,7 @@ class ImageDB(object):
         orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
         orig_hist_desc = hist.calculate_descriptor(orig_img_part)
 
-        orig_desc = orig_hist_desc
+        orig_desc = orig_lbp_desc
 
         # select scale
         area = bound.area()
@@ -334,16 +334,22 @@ class ImageDB(object):
         center = bound.center()
         descriptor_coordinates = (center / scale).astype(np.int)
 
-        heap = Heap(5)
+        orig_desc = self.descriptors_db.calculate_one_descriptor(img, scale, descriptor_coordinates[0],
+                                                                 descriptor_coordinates[1])
+
+        heap = Heap(3)
         for ind, descriptor_value in self.descriptors_db.get_descriptors(scale, descriptor_coordinates):
-            dist = np.linalg.norm(orig_desc, descriptor_value)
-            heap.push((dist, img))
+            descriptor_value = np.asarray(descriptor_value)
+            dist = np.linalg.norm(orig_desc - descriptor_value)
+            ind = int(ind.split('.')[0])
+            heap.push((-dist, ind))
 
         for desc_value, ind in heap.data():
             pts = np.ndarray((4, 2), buffer=bound.data(), dtype=float).flatten()
-            p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
+            trans_ind = self.img_ids.index(ind)
+            p = new_points(pts, self_transform, self.transform_matrix[trans_ind], self.avrg)
             p = p.reshape(4, 2)
-            img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind])
+            img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[trans_ind])
             img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
             lbp_desc = lbp.calculate_descriptor(img_part)
             hist_desc = hist.calculate_descriptor(img_part)
@@ -352,7 +358,7 @@ class ImageDB(object):
             hist_diff = np.linalg.norm(orig_hist_desc - hist_desc)
             head, filename = os.path.split(img_path)
 
-            yield draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]),
+            yield draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[trans_ind]),
                                      p, show=False), lbp_diff, hist_diff, filename
 
 
@@ -417,6 +423,10 @@ def magic_method(img_path):
 
 
 def main():
+    db = DescriptorsDB()
+    for img in db.cfg.images:
+        db.make_descriptors(img)
+    return
     magic_method('/home/deathnik/src/my/magister/webcrdf-testbed/webcrdf-testbed/data/datadb.segmxr/001.png')
 
 

@@ -27,3 +27,6 @@ class LocalBinaryPatternsDescriptor(Descriptor):
 
         # return the histogram of Local Binary Patterns
         return hist
+
+    def size(self):
+        return self.num_points + 1

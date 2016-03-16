@@ -75,6 +75,12 @@ class DescriptorsDB(object):
                     calculated_descriptors.append(descriptor.calculate_descriptor(img_part))
             yield w, h, calculated_descriptors
 
+    def calculate_one_descriptor(self, img, size, i, j):
+        descriptor = self._get_descriptor()
+        w, h = size
+        img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
+        return descriptor.calculate_descriptor(img_part)
+
     def make_descriptors(self, img_id):
         img_path = DATABASE_LOCATION + img_id
         _descriptor = self._get_descriptor()

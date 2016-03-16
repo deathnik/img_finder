@@ -93,7 +93,7 @@ class MyApp(object):
 
     def process_image(self, path, upper_corner, lower_corner):
         print path, upper_corner, lower_corner
-        data = sorted(enumerate(list(self.db.do_magic(path, upper_corner, lower_corner))), key=lambda x: x[1][2])
+        data = sorted(enumerate(list(self.db.do_magic_v2(path, upper_corner, lower_corner))), key=lambda x: x[1][2])
 
         f, axes = plt.subplots(len(data))
 

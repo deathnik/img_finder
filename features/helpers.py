@@ -8,7 +8,7 @@ def crop_image(x1, y1, x2, y2, img):
 class Heap(object):
     def __init__(self, capacity=10):
         self.h = []
-        self.capacity = 10
+        self.capacity = capacity
         heapq.heapify(self.h)
         self.size = 0
 
