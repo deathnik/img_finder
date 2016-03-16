@@ -41,10 +41,12 @@ class DBConfig(object):
                 self.img_size = data['img_size']
 
 
-class DB(object):
+class DescriptorsDB(object):
     def __init__(self):
         self.images = dict()
         self.cfg = None
+        db_path = os.path.join(main.DATABASE_LOCATION, 'db.txt')
+        self.cfg = DBConfig(db_path)
         self.load_metainfo()
 
     def load_metainfo(self):
@@ -72,3 +74,6 @@ class DB(object):
             for _, _, descriptors in self.calculate_descriptors(img_path):
                 for descriptor in descriptors:
                     descrfile.write(struct.pack(pack_template, descriptor))
+
+    def get_descriptors(self, size, position):
+        pass

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
+import heapq
 import os
 import numpy as np
 from numpy import genfromtxt
@@ -7,8 +8,10 @@ import zipfile
 import cv2
 import math
 import skimage.filter
+from database import DescriptorsDB
 
 from features import LocalBinaryPatternsDescriptor, HistDescriptor, crop_image
+from features.helpers import Heap
 
 OUTPUT_DIR = '/tmp/1'
 DATABASE_LOCATION = '/home/deathnik/src/my/magister/webcrdf-testbed/webcrdf-testbed/data/datadb.segmxr/'
@@ -236,6 +239,29 @@ def draw_points_on_img(img_path, pts, show=True):
     cv2.destroyAllWindows()
 
 
+class BoundingBox(object):
+    def __init__(self, data):
+        self._bound = None
+        if isinstance(data, list) and len(data) == 8:
+            self._bound = np.array(data)
+            self.p = np.ndarray((4, 2), buffer=self._bound, dtype=float)
+        else:
+            raise Exception("type {} for data do not supported in BoundingBox constructor".format(type(data).__name__))
+
+    def data(self):
+        return self._bound
+
+    def points(self):
+        return self.p
+
+    def area(self):
+        x1, y1, x2, y2 = self.p[0][0], self.p[0][1], self.p[2][0], self.p[2][1]
+        return abs(x1 - x2) * abs(y2 - y1)
+
+    def center(self):
+        return np.average(self._bound, axis=0)
+
+
 class ImageDB(object):
     def __init__(self):
         transform_matrix, nbrs_clf, img_ids, avrg = load_database(200)
@@ -243,9 +269,11 @@ class ImageDB(object):
         self.nbrs_clf = nbrs_clf
         self.img_ids = img_ids
         self.avrg = avrg
+        self.descriptors_db = DescriptorsDB()
 
+    # select closest via knn, search inside them
     def do_magic(self, img_path, upper, lower):
-        bound = np.array([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
+        bound = BoundingBox([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
         f = Fix()
         retMsk, retCorr, sumPts, ptsXY = f.register_mask(img_path)
         pts = f.pts.flatten()
@@ -255,7 +283,7 @@ class ImageDB(object):
 
         lbp = LocalBinaryPatternsDescriptor()
         hist = HistDescriptor()
-        p = np.ndarray((4, 2), buffer=bound, dtype=float)
+        p = np.ndarray((4, 2), buffer=bound.data(), dtype=float)
         orig_img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
         orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
         orig_hist_desc = hist.calculate_descriptor(orig_img_part)
@@ -263,7 +291,53 @@ class ImageDB(object):
         # draw_points_on_img(img_path, np.ndarray((4, 2), buffer=bound, dtype=float))
 
         for ind in indexes:
-            pts = np.ndarray((4, 2), buffer=bound, dtype=float).flatten()
+            pts = np.ndarray((4, 2), buffer=bound.data(), dtype=float).flatten()
+            p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
+            p = p.reshape(4, 2)
+            img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind])
+            img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], cv2.imread(img_path, 1))
+            lbp_desc = lbp.calculate_descriptor(img_part)
+            hist_desc = hist.calculate_descriptor(img_part)
+
+            lbp_diff = np.linalg.norm(orig_lbp_desc - lbp_desc)
+            hist_diff = np.linalg.norm(orig_hist_desc - hist_desc)
+            head, filename = os.path.split(img_path)
+
+            yield draw_points_on_img(os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind]),
+                                     p, show=False), lbp_diff, hist_diff, filename
+
+    # select closest via local precomputed descriptors
+    def do_magic_v2(self, img_path, upper, lower):
+        bound = BoundingBox([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
+        f = Fix()
+        retMsk, retCorr, sumPts, ptsXY = f.register_mask(img_path)
+        pts = f.pts.flatten()
+        self_transform = self.avrg - pts
+
+        lbp = LocalBinaryPatternsDescriptor()
+        hist = HistDescriptor()
+        p = np.ndarray((4, 2), buffer=bound.data(), dtype=float)
+        img = cv2.imread(img_path, 1)
+        orig_img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], img)
+        orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
+        orig_hist_desc = hist.calculate_descriptor(orig_img_part)
+
+        orig_desc = orig_hist_desc
+
+        # select scale
+        area = bound.area()
+        # finding closest scale. we sup closest scale - scale with closest area size
+        scale = min(self.descriptors_db.cfg.sizes, key=lambda x: abs(area - x[0] * x[1]))
+        center = bound.center()
+        descriptor_coordinates = (center / scale).astype(np.int)
+
+        heap = Heap(5)
+        for ind, descriptor_value in self.descriptors_db.get_descriptors(scale, descriptor_coordinates):
+            dist = np.linalg.norm(orig_desc, descriptor_value)
+            heap.push((dist, img))
+
+        for desc_value, ind in heap.data():
+            pts = np.ndarray((4, 2), buffer=bound.data(), dtype=float).flatten()
             p = new_points(pts, self_transform, self.transform_matrix[ind], self.avrg)
             p = p.reshape(4, 2)
             img_path = os.path.join(DATABASE_LOCATION, '%03d.png' % self.img_ids[ind])
