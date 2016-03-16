@@ -1,4 +1,3 @@
-import numpy as np
 import Tkinter as tk
 import matplotlib as mpl
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg, os
@@ -9,7 +8,7 @@ import matplotlib.pyplot as plt
 # custom toolbar
 import tkFileDialog
 import cv2
-from main import ImageDB
+from main_module.main import ImageDB
 
 
 class CustomToolbar(NavigationToolbar2TkAgg):

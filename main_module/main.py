@@ -1,20 +1,23 @@
-from collections import defaultdict
 from copy import deepcopy
-import heapq
 import os
 import numpy as np
 from numpy import genfromtxt
+from sys import modules
 import zipfile
 import cv2
 import math
 import skimage.filter
-from database import DescriptorsDB
+from database.db import DATABASE_LOCATION
+
+try:
+    module = modules['DescriptorsDB']
+except KeyError:
+    from database import DescriptorsDB
 
 from features import LocalBinaryPatternsDescriptor, HistDescriptor, crop_image
 from features.helpers import Heap
 
 OUTPUT_DIR = '/tmp/1'
-DATABASE_LOCATION = '/home/deathnik/src/my/magister/webcrdf-testbed/webcrdf-testbed/data/datadb.segmxr/'
 
 
 def adjust_image(img, perc):
