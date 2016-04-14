@@ -10,7 +10,8 @@ class Descriptor(object):
         self.w = w
 
     def _auto_crop(self, img):
-        return cv2.resize(img, (self.h, self.w))
+        res = cv2.resize(img, (self.h, self.w))
+        return res
 
     @abstractmethod
     def _calculate_descriptor(self, img):

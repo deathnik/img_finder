@@ -112,7 +112,6 @@ class Fix(object):
             os.system(self.transformix_command.format(temp_database_mask, OUTPUT_DIR, OUTPUT_DIR))
 
             # mask update
-            print temp_out_mask
             temp_mask = cv2.imread(temp_out_mask, 0).astype(np.float) / 255.0
             temp_mask = skimage.filter.gaussian_filter(temp_mask, 0.5)
             if 'sum_mask' not in locals():
@@ -155,7 +154,7 @@ class Fix(object):
 def load_database(db_size):
     items_seen = 0
     img_ids = []
-    for i in xrange(2, db_size + 1):
+    for i in xrange(1, db_size + 1):
         csv_path = os.path.join(DATABASE_LOCATION, '%03d.png_pts.csv' % i)
         try:
             my_data = genfromtxt(csv_path, delimiter=',')
@@ -176,7 +175,6 @@ def load_database(db_size):
         items_seen += 1
         img_ids.append(i)
     data = data.reshape(items_seen, 14)
-    print data.shape
     from sklearn.neighbors import NearestNeighbors
     nbrs = NearestNeighbors(n_neighbors=10, algorithm='ball_tree').fit(data)
     dists, points_indx = nbrs.kneighbors(my_data.flatten(), n_neighbors=2)
@@ -310,7 +308,7 @@ class ImageDB(object):
                                      p, show=False), lbp_diff, hist_diff, filename
 
     # select closest via local precomputed descriptors
-    def do_magic_v2(self, img_path, upper, lower):
+    def do_magic_v2(self, img_path, upper, lower,heap_size=3):
         bound = BoundingBox([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
         f = Fix()
         retMsk, retCorr, sumPts, ptsXY = f.register_mask(img_path)
@@ -337,7 +335,7 @@ class ImageDB(object):
         orig_desc = self.descriptors_db.calculate_one_descriptor(img, scale, descriptor_coordinates[0],
                                                                  descriptor_coordinates[1])
 
-        heap = Heap(3)
+        heap = Heap(heap_size)
         for ind, descriptor_value in self.descriptors_db.get_descriptors(scale, descriptor_coordinates):
             descriptor_value = np.asarray(descriptor_value)
             dist = np.linalg.norm(orig_desc - descriptor_value)
