@@ -260,7 +260,7 @@ class BoundingBox(object):
         return abs(x1 - x2) * abs(y2 - y1)
 
     def center(self):
-        return np.average(self._bound, axis=0)
+        return np.average(self.p, axis=0)
 
 
 class ImageDB(object):
@@ -308,7 +308,7 @@ class ImageDB(object):
                                      p, show=False), lbp_diff, hist_diff, filename
 
     # select closest via local precomputed descriptors
-    def do_magic_v2(self, img_path, upper, lower,heap_size=3):
+    def do_magic_v2(self, img_path, upper, lower, heap_size=3):
         bound = BoundingBox([upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]])
         f = Fix()
         retMsk, retCorr, sumPts, ptsXY = f.register_mask(img_path)

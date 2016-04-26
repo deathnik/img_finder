@@ -90,7 +90,7 @@ class DescriptorsDB(object):
 
     def make_all_descriptors(self, force=False):
         for img in self.cfg.images:
-            self.make_descriptors(img)
+            self.make_descriptors(img, force=force)
 
     def calculate_descriptors(self, img_path):
         descriptor = self._get_descriptor()
@@ -106,12 +106,14 @@ class DescriptorsDB(object):
     def calculate_one_descriptor(self, img, size, i, j):
         descriptor = self._get_descriptor()
         w, h = size
+        print w * i, h * j, w * (i + 1), h * (j + 1)
         img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
         return descriptor.calculate_descriptor(img_part)
 
     def make_descriptors(self, img_id, force=False):
         img_path = os.path.join(self.db_location, img_id)
-        if img_path in self.images and self.images[img_path] and not force:
+        descr = img_path + self.cfg.descriptor_suffix
+        if descr in self.images and self.images[descr] and not force:
             return
         _descriptor = self._get_descriptor()
         pack_template = '{}f'.format(_descriptor.size())
@@ -136,4 +138,8 @@ class DescriptorsDB(object):
         for image_name in self.cfg.images:
             with open(self._get_descriptor_location(image_name), 'rb') as f:
                 f.seek(offset)
-                yield image_name, struct.unpack(pack_template, f.read(descriptor_size * ELEMENT_SIZE))
+                try:
+                    data = f.read(descriptor_size * ELEMENT_SIZE)
+                    yield image_name, struct.unpack(pack_template, data)
+                except Exception as e:
+                    pass

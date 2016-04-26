@@ -5,7 +5,7 @@ from base import Descriptor
 
 
 class HistDescriptor(Descriptor):
-    def __init__(self, num_points=9, **kwargs):
+    def __init__(self, num_points=20, **kwargs):
         super(HistDescriptor, self).__init__(**kwargs)
         self.num_points = num_points
         self.eps = 1e-7
