@@ -12,6 +12,10 @@ from main_module.main import BoundingBox
 db_path = '//home/deathnik/Documents/magistratura/bioid/part'
 
 
+def imread(path, normalize=True):
+    pass
+
+
 def show(ind, upper, lower):
     img = cv2.imread(db_path + '/' + ind + '.pgm')
     cv2.rectangle(img, upper, lower, color=[110, 50, 50])
@@ -29,8 +33,8 @@ def search(descriptors_db, img_path, upper, lower, heap_size=3):
     p = np.ndarray((4, 2), buffer=bound.data(), dtype=float)
     img = cv2.imread(img_path, 1)
     orig_img_part = crop_image(p[0][0], p[0][1], p[2][0], p[2][1], img)
-    orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
-    orig_hist_desc = hist.calculate_descriptor(orig_img_part)
+    #orig_lbp_desc = lbp.calculate_descriptor(orig_img_part)
+    #orig_hist_desc = hist.calculate_descriptor(orig_img_part)
 
     area = bound.area()
     # finding closest scale. we sup closest scale - scale with closest area size
@@ -42,17 +46,17 @@ def search(descriptors_db, img_path, upper, lower, heap_size=3):
                                                         descriptor_coordinates[1])
     heap = Heap(heap_size)
     for ind, descriptor_value, (x_pos, y_pos) in descriptors_db.get_descriptors(scale, descriptor_coordinates,
-                                                                                bounding_size=4):
+                                                                                bounding_size=1):
         descriptor_value = np.asarray(descriptor_value)
         dist = abs(np.linalg.norm(orig_desc - descriptor_value))
         ind = ind.split('.')[0]
         heap.push((- dist, ind, (x_pos, y_pos)))
     show_u = tuple(descriptor_coordinates * scale)
-    show_l = tuple(descriptor_coordinates * scale + [16, 16])
+    show_l = tuple(descriptor_coordinates * scale + scale)
     show('BioID_0000', show_u, show_l)
-    for desc_value, ind, (x_pos, y_pos) in heap.data():
+    for desc_value, ind, (x_pos, y_pos) in sorted(heap.data()):
         print desc_value, ind, (x_pos, y_pos)
-        show(ind, (x_pos * 16, y_pos * 16), (x_pos * 16 + 16, y_pos * 16 + 16))
+        show(ind, (x_pos * scale[0], y_pos * scale[1]), ((x_pos + 1) * scale[0], (y_pos + 1) * scale[1]))
 
 
 def main():
@@ -69,16 +73,24 @@ def main():
     # return
     # kp1, des1 = sift.detectAndCompute(part, None)
     # return
+    size = (16, 16)
+    global db_path
+    db_path = '/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2'
 
-    DBConfig.create_for_path(db_path, '.pgm', descriptor_type='.hist')
+    DBConfig.create_for_path(db_path, '.pgm', descriptor_type='.hist', sizes=[size])
+
     desc_db = DescriptorsDB(db_location=db_path)
-    desc_db.make_all_descriptors(force=True)
+    # desc_db.make_all_descriptors(force=True)
     # print 'staring search'
+
+    default_pos = (10, 10)
     movex = 2
     movey = 1
     search(descriptors_db=desc_db,
            img_path='/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2/BioID_0000.pgm',
-           upper=(160 + movex * 16, 160 + movey * 16), lower=(176 + movex * 16, 176 + movey * 16), heap_size=10)
+           upper=((default_pos[0] + movex) * size[0], (default_pos[1] + movey) * size[1]),
+           lower=((default_pos[0] + movex + 1) * size[0], (default_pos[1] + movey + 1) * size[1]),
+           heap_size=20)
 
     return
 

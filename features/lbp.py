@@ -6,13 +6,15 @@ from features.base import Descriptor
 
 
 class LocalBinaryPatternsDescriptor(Descriptor):
-    def __init__(self, num_points=20, radius=4, **kwargs):
+    def __init__(self, num_points=9 , radius=2, **kwargs):
         super(LocalBinaryPatternsDescriptor, self).__init__(**kwargs)
+        self.algo_num_points = num_points
         self.num_points = num_points
+
         self.radius = radius
         self.eps = 1e-7
 
-    def _calculate_descriptor(self, image):
+    def _calculate_descriptor(self, image, *args, **kwargs):
         if len(image.shape) == 3:
             image = rgb2gray(image)
         lbp = feature.local_binary_pattern(image, self.num_points,
@@ -23,7 +25,7 @@ class LocalBinaryPatternsDescriptor(Descriptor):
 
         # normalize the histogram
         hist = hist.astype("float")
-        # hist /= (hist.sum() + self.eps)
+        hist /= (hist.sum() + self.eps)
 
         # return the histogram of Local Binary Patterns
         return hist

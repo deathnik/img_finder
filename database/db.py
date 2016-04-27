@@ -96,6 +96,7 @@ class DescriptorsDB(object):
     def calculate_descriptors(self, img_path):
         descriptor_template = self._get_descriptor()
         img = cv2.imread(img_path, 1)
+        mean = img.mean()
         for w, h in self.cfg.sizes:
             descriptor = deepcopy(descriptor_template)
 
@@ -105,15 +106,18 @@ class DescriptorsDB(object):
             for i in range(0, img.shape[0] / w):
                 for j in range(0, img.shape[1] / h):
                     img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
-                    calculated_descriptors.append(descriptor.calculate_descriptor(img_part))
+                    calculated_descriptors.append(descriptor.calculate_descriptor(img_part, mean=mean))
             yield w, h, calculated_descriptors
 
     def calculate_one_descriptor(self, img, size, i, j):
         descriptor = self._get_descriptor()
         w, h = size
+        descriptor.w = w
+        descriptor.h = h
         print w * i, h * j, w * (i + 1), h * (j + 1)
         img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
-        return descriptor.calculate_descriptor(img_part)
+
+        return descriptor.calculate_descriptor(img_part, mean=img.mean())
 
     def make_descriptors(self, img_id, force=False):
         img_path = os.path.join(self.db_location, img_id)

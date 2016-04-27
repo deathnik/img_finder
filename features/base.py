@@ -14,9 +14,9 @@ class Descriptor(object):
         return res
 
     @abstractmethod
-    def _calculate_descriptor(self, img):
+    def _calculate_descriptor(self, img, *args, **kwargs):
         pass
 
-    def calculate_descriptor(self, img):
+    def calculate_descriptor(self, img, *args, **kwargs):
         cropped_img = self._auto_crop(img)
-        return self._calculate_descriptor(cropped_img)
+        return self._calculate_descriptor(cropped_img, *args, **kwargs)
