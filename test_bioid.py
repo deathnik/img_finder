@@ -36,35 +36,49 @@ def search(descriptors_db, img_path, upper, lower, heap_size=3):
     # finding closest scale. we sup closest scale - scale with closest area size
     scale = min(descriptors_db.cfg.sizes, key=lambda x: abs(area - x[0] * x[1]))
     center = bound.center()
-    print center
     descriptor_coordinates = (center / scale).astype(np.int)
-    print descriptor_coordinates * scale, scale, descriptor_coordinates
-    # print descriptor_coordinates, bound.area(), scale, descriptor_coordinates[0], descriptor_coordinates[1]
-    # return
+
     orig_desc = descriptors_db.calculate_one_descriptor(img, scale, descriptor_coordinates[0],
                                                         descriptor_coordinates[1])
     heap = Heap(heap_size)
-    for ind, descriptor_value in descriptors_db.get_descriptors(scale, descriptor_coordinates):
+    for ind, descriptor_value, (x_pos, y_pos) in descriptors_db.get_descriptors(scale, descriptor_coordinates,
+                                                                                bounding_size=4):
         descriptor_value = np.asarray(descriptor_value)
         dist = abs(np.linalg.norm(orig_desc - descriptor_value))
         ind = ind.split('.')[0]
-        heap.push((-dist, ind))
+        heap.push((- dist, ind, (x_pos, y_pos)))
     show_u = tuple(descriptor_coordinates * scale)
     show_l = tuple(descriptor_coordinates * scale + [16, 16])
     show('BioID_0000', show_u, show_l)
-    for desc_value, ind in heap.data():
-        print desc_value, ind
-        show(ind, show_u, show_l)
+    for desc_value, ind, (x_pos, y_pos) in heap.data():
+        print desc_value, ind, (x_pos, y_pos)
+        show(ind, (x_pos * 16, y_pos * 16), (x_pos * 16 + 16, y_pos * 16 + 16))
 
 
 def main():
+    # img = cv2.imread('/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2/BioID_0000.pgm', 1)
+    # #print img
+    # part = crop_image(160, 160, 176, 176, img)
+    # detector = cv2.ORB()
+    # kp1, des1  = detector.detectAndCompute(part,None)
+    # surfDetector = cv2.FeatureDetector_create("SURF")
+    # surfDescriptorExtractor = cv2.DescriptorExtractor_create("SURF")
+    # keypoints = surfDetector.detect(img)
+    # (keypoints, descriptors) = surfDescriptorExtractor.compute(img,keypoints)
+    # print keypoints, descriptors
+    # return
+    # kp1, des1 = sift.detectAndCompute(part, None)
+    # return
+
     DBConfig.create_for_path(db_path, '.pgm', descriptor_type='.hist')
     desc_db = DescriptorsDB(db_location=db_path)
-    #desc_db.make_all_descriptors(force=True)
+    desc_db.make_all_descriptors(force=True)
     # print 'staring search'
+    movex = 2
+    movey = 1
     search(descriptors_db=desc_db,
            img_path='/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2/BioID_0000.pgm',
-           upper=(160, 160 - 2 * 16), lower=(176, 176 - 2 * 16), heap_size=10)
+           upper=(160 + movex * 16, 160 + movey * 16), lower=(176 + movex * 16, 176 + movey * 16), heap_size=10)
 
     return
 

@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 import logging
 import os
@@ -93,9 +94,13 @@ class DescriptorsDB(object):
             self.make_descriptors(img, force=force)
 
     def calculate_descriptors(self, img_path):
-        descriptor = self._get_descriptor()
+        descriptor_template = self._get_descriptor()
         img = cv2.imread(img_path, 1)
         for w, h in self.cfg.sizes:
+            descriptor = deepcopy(descriptor_template)
+
+            descriptor.w = w
+            descriptor.h = h
             calculated_descriptors = []
             for i in range(0, img.shape[0] / w):
                 for j in range(0, img.shape[1] / h):
@@ -122,7 +127,7 @@ class DescriptorsDB(object):
                 for descriptor in descriptors:
                     descrfile.write(struct.pack(pack_template, *descriptor))
 
-    def get_descriptors(self, size, position):
+    def line_descriptors(self, size, position, bounding_size):
         offset = 0
         size = list(size)
         for sz in self.cfg.sizes:
@@ -132,14 +137,22 @@ class DescriptorsDB(object):
                 offset += position[1] * self.cfg.img_size[0] / sz[0] + position[0]
                 break
         descriptor_size = self._get_descriptor().size()
-
         pack_template = '{}f'.format(descriptor_size)
         offset *= descriptor_size * ELEMENT_SIZE
+
+        elements_to_read = 1 + bounding_size * 2
         for image_name in self.cfg.images:
             with open(self._get_descriptor_location(image_name), 'rb') as f:
                 f.seek(offset)
-                try:
-                    data = f.read(descriptor_size * ELEMENT_SIZE)
-                    yield image_name, struct.unpack(pack_template, data)
-                except Exception as e:
-                    pass
+                for x in xrange(0, elements_to_read):
+                    try:
+                        data = f.read(descriptor_size * ELEMENT_SIZE)
+                        yield image_name, struct.unpack(pack_template, data), (position[0], position[1] + x)
+                    except Exception as e:
+                        pass
+
+    def get_descriptors(self, size, position, bounding_size=0):
+        for levels in xrange(-bounding_size, bounding_size + 1):
+            pos = position[0] - levels, position[1] - bounding_size
+            for x in self.line_descriptors(size, pos, bounding_size):
+                yield x
