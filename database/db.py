@@ -106,7 +106,8 @@ class DescriptorsDB(object):
             for i in range(0, img.shape[0] / w):
                 for j in range(0, img.shape[1] / h):
                     img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
-                    calculated_descriptors.append(descriptor.calculate_descriptor(img_part, mean=mean))
+                    res = descriptor.calculate_descriptor(img_part, mean=mean)
+                    calculated_descriptors.append(res)
             yield w, h, calculated_descriptors
 
     def calculate_one_descriptor(self, img, size, i, j):
@@ -114,10 +115,9 @@ class DescriptorsDB(object):
         w, h = size
         descriptor.w = w
         descriptor.h = h
-        print w * i, h * j, w * (i + 1), h * (j + 1)
         img_part = crop_image(w * i, h * j, w * (i + 1), h * (j + 1), img)
-
-        return descriptor.calculate_descriptor(img_part, mean=img.mean())
+        res = descriptor.calculate_descriptor(img_part, mean=img.mean())
+        return res
 
     def make_descriptors(self, img_id, force=False):
         img_path = os.path.join(self.db_location, img_id)
@@ -138,7 +138,7 @@ class DescriptorsDB(object):
             if sz != size:
                 offset += self.cfg.img_size[0] / sz[0] * self.cfg.img_size[1] / sz[1]
             else:
-                offset += position[1] * self.cfg.img_size[0] / sz[0] + position[0]
+                offset += position[0] * self.cfg.img_size[1] / sz[1] + position[1]
                 break
         descriptor_size = self._get_descriptor().size()
         pack_template = '{}f'.format(descriptor_size)
