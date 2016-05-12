@@ -5,7 +5,7 @@ from base import Descriptor
 
 
 class HistDescriptor(Descriptor):
-    def __init__(self, num_points=64, **kwargs):
+    def __init__(self, num_points=32, **kwargs):
         super(HistDescriptor, self).__init__(**kwargs)
         self.num_points = num_points
         self.eps = 1e-7
@@ -13,8 +13,11 @@ class HistDescriptor(Descriptor):
     def _calculate_descriptor(self, img, *args, **kwargs):
         if len(img.shape) == 3:
             img = rgb2gray(img)
-        mean = kwargs['mean']
-        img2 = img / mean * 128
+        if 'mean' in kwargs:
+            mean = kwargs['mean']
+            img2 = img / mean * 128
+        else:
+            img2 = img
         bins = [x * 1.0 / (self.num_points + 2) for x in np.arange(0, self.num_points + 2)]
         # (hist, _) = np.histogram(img.ravel(), bins=bins,
         #                         range=(0, self.num_points + 1))

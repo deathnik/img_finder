@@ -9,7 +9,7 @@ class LocalBinaryPatternsDescriptor(Descriptor):
     def __init__(self, num_points=4, radius=2, **kwargs):
         super(LocalBinaryPatternsDescriptor, self).__init__(**kwargs)
         self.algo_num_points = num_points
-        self.num_points = 256 - 1
+        self.num_points = 32 - 1
 
         self.radius = radius
         self.eps = 1e-7
@@ -21,7 +21,7 @@ class LocalBinaryPatternsDescriptor(Descriptor):
         image = image / mean
         lbp = feature.local_binary_pattern(image, self.algo_num_points,
                                            self.radius, method="uniform")
-        return lbp.ravel()
+        #return lbp.ravel()
         (hist, _) = np.histogram(lbp.ravel(),
                                  bins=np.arange(0, self.num_points + 2),
                                  range=(0, self.num_points + 1))
