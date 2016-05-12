@@ -17,11 +17,12 @@ class LocalBinaryPatternsDescriptor(Descriptor):
     def _calculate_descriptor(self, image, *args, **kwargs):
         if len(image.shape) == 3:
             image = rgb2gray(image)
-        mean = kwargs['mean']
-        image = image / mean
+        if 'mean' in kwargs:
+            mean = kwargs['mean']
+            image = image / mean
         lbp = feature.local_binary_pattern(image, self.algo_num_points,
                                            self.radius, method="uniform")
-        #return lbp.ravel()
+        return lbp.ravel()
         (hist, _) = np.histogram(lbp.ravel(),
                                  bins=np.arange(0, self.num_points + 2),
                                  range=(0, self.num_points + 1))
