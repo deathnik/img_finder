@@ -9,9 +9,15 @@ from database.db import DBConfig
 from features import LocalBinaryPatternsDescriptor, crop_image
 from features import HistDescriptor
 from features.helpers import Heap
+from features.hist import hist_distance
 from main_module.main import BoundingBox
 
+import scipy
 
+BOUNDING_SIZE = 2
+IMAGE_TO_USE = 'BioID_0000'
+
+distance_matrix = np.array([[0.0, 0.5], [0.5, 0.0]])
 
 db_path = '//home/deathnik/Documents/magistratura/bioid/part'
 
@@ -58,7 +64,7 @@ def search(descriptors_db, img_template, upper, lower, heap_size=3):
     # print upper, lower
     bound = BoundingBox(map(float, [upper[0], upper[1], upper[0], lower[1], lower[0], lower[1], lower[0], upper[1]]))
 
-    img_path = img_template.format('BioID_0000')
+    img_path = img_template.format(IMAGE_TO_USE)
     lbp = LocalBinaryPatternsDescriptor()
     hist = HistDescriptor()
     p = np.ndarray((4, 2), buffer=bound.data(), dtype=float)
@@ -76,22 +82,58 @@ def search(descriptors_db, img_template, upper, lower, heap_size=3):
     orig_desc = descriptors_db.calculate_one_descriptor(img, scale, descriptor_coordinates[0],
                                                         descriptor_coordinates[1])
     heap = Heap(heap_size)
+    cor_method = 3
+    _min2 = [100000000000 for i in xrange(4)]
+    _max2 = [-100000000000 for i in xrange(4)]
+    # _min = [-0.5799584919619982, -12151325.719406169, 0.011764706578105702, -0.9999839563885284]
+    # _max = [1.0, -0.0, 4097.904150336981, -0.0]
+    _min = [-0.7530618036971718, -2386860.0396204507, -2386737.0085002366, -2386737.2483462547]
+    _max = [1.0593303816872124, 1.0593303816872124, 1509.8481579194934, 1509.8481579194934]
     for ind, descriptor_value, (x_pos, y_pos) in descriptors_db.get_descriptors(scale, descriptor_coordinates,
-                                                                                bounding_size=3):
+                                                                                bounding_size=BOUNDING_SIZE):
         descriptor_value = np.asarray(descriptor_value)
-        dist = abs(sum([w * abs(x - y) for w, (x, y) in zip(weights, zip(orig_desc, descriptor_value))]))
+        adding = 0  # sum(orig_desc[6:]) / 2
+        # dist = scipy.stats.chisquare(f_exp=[x + adding for x in orig_desc[6:]],
+        #                             f_obs=[x + adding for x in descriptor_value[6:]])
+        dist = 0.0
+        # for i in xrange(3):
+        #     cor_method = i
+        #     _dist = cv2.compareHist(np.float32(orig_desc), np.float32(descriptor_value), OPENCV_METHODS[cor_method][1])
+        #     _dist *= OPENCV_METHODS[cor_method][2]
+        #     dist += _dist / abs((_max[i] - _min[i]))
+        #     if dist < _min2[i]:
+        #         _min2[i] = dist
+        #     if dist > _max2[i]:
+        #         _max2[i] = dist
+        cor_method = 3
+        dist = cv2.compareHist(np.float32(orig_desc), np.float32(descriptor_value), OPENCV_METHODS[cor_method][1])
+        dist *= OPENCV_METHODS[cor_method][2]
+        try:
+            dist = hist_distance(orig_desc, descriptor_value) * -1
+        except:
+            continue
+        # dist = sum([- abs(x - y) * abs(x - y) for x, y in zip(descriptor_value, orig_desc)])
+        # print dist
+        # raise 1
+        # print dist
+        # dist = dist[0]
+
+        # abs(sum([w * abs(x - y) for w, (x, y) in zip(weights, zip(orig_desc, descriptor_value))]))
+
+        # print '2', dist
         ind = ind.split('.')[0]
-        heap.push((- dist, ind, (x_pos, y_pos), descriptor_value))
+        heap.push((dist, ind, (x_pos, y_pos), descriptor_value))
+    print _min2, _max2
     show_u = tuple(descriptor_coordinates * scale)
     show_l = tuple(descriptor_coordinates * scale + scale)
-    show('BioID_0000', show_u, show_l)
+    show(IMAGE_TO_USE, show_u, show_l)
     for dist, ind, (x_pos, y_pos), descriptor_value in reversed(sorted(heap.data())):
         # check descriptor is ok
         img = cv2.imread(img_template.format(ind), 1)
         descriptor_value2 = descriptors_db.calculate_one_descriptor(img, scale, x_pos, y_pos)
         s = sum(descriptor_value2 - descriptor_value)
-        if abs(s) > 0.0001:
-            raise Exception('wrong descr loaded')
+        # if abs(s) > 0.0001:
+        #    raise Exception('wrong descr loaded')
         show(ind, (x_pos * scale[0], y_pos * scale[1]), ((x_pos + 1) * scale[0], (y_pos + 1) * scale[1]))
         print dist, ind
         print ''
@@ -119,6 +161,12 @@ points = {
     18: "centre point on outer edge of lower lip",
     19: "tip of chin"
 }
+
+OPENCV_METHODS = (
+    ("Correlation", cv2.cv.CV_COMP_CORREL, 1),
+    ("Chi-Squared", cv2.cv.CV_COMP_CHISQR, -1),
+    ("Intersection", cv2.cv.CV_COMP_INTERSECT, 1),
+    ("Hellinger", cv2.cv.CV_COMP_BHATTACHARYYA, -1))
 
 
 def calc(descr, img_path, coords, size=[32, 32]):
@@ -179,8 +227,8 @@ def prepare_viborka(descr, place_to_save):
 
 
 def main():
-    #prepare_viborka(HistDescriptor(), '/home/deathnik/hist_viborka')
-    #return
+    # prepare_viborka(HistDescriptor(), '/home/deathnik/hist_viborka')
+    # return
     # img = cv2.imread('/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2/BioID_0000.pgm')
     # print img.shape
     # return
@@ -196,9 +244,9 @@ def main():
     # return
     # kp1, des1 = sift.detectAndCompute(part, None)
     # return
-    size = (32, 32)
+    size = (64, 64)
     global db_path
-    # db_path = '/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2'
+    db_path = '/home/deathnik/Documents/magistratura/bioid/BioID-FaceDatabase-V1.2'
 
     DBConfig.default_img_size = [286, 384]
     DBConfig.create_for_path(db_path, '.pgm', descriptor_type='.hist', sizes=[size])
@@ -207,7 +255,7 @@ def main():
     # desc_db.cfg.images = [
     #     'BioID_1080.pgm'
     # ]
-    desc_db.make_all_descriptors(force=True)
+    # desc_db.make_all_descriptors(force=True)
     # descrs = desc_db.get_descriptors([16, 16], [12, 11], bounding_size=1)
     # for _, desc, ind in descrs:
     #    print ind, np.asarray(desc)
@@ -217,7 +265,7 @@ def main():
 
     # print 'staring search'
 
-    default_pos = (5, 5)
+    default_pos = (2, 2)
     movex = 0
     movey = 0
     search(descriptors_db=desc_db,

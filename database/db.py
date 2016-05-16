@@ -147,7 +147,11 @@ class DescriptorsDB(object):
         elements_to_read = 1 + bounding_size * 2
         for image_name in self.cfg.images:
             with open(self._get_descriptor_location(image_name), 'rb') as f:
-                f.seek(offset)
+                try:
+                    f.seek(offset)
+                except:
+                    continue
+
                 for x in xrange(0, elements_to_read):
                     try:
                         data = f.read(descriptor_size * ELEMENT_SIZE)
